@@ -26,8 +26,11 @@ around it.
 - Never paste cookies, tokens, authorization headers or storage contents into
   this document, into issues, or into test fixtures.
 - `scripts/paper_discovery.js` only reports structural knowledge (names,
-  attributes, booleans) and redacts token-like strings before printing. Do not
-  bypass it with ad-hoc probes that dump storage or headers.
+  attributes, booleans). It inspects runtime objects through property
+  descriptors so accessor getters are never executed, collects no free-form
+  element text (only `aria-label` / `data-name` / `role` values), and redacts
+  secret-looking keys, token-like strings and email addresses before printing.
+  Do not bypass it with ad-hoc probes that dump storage or headers.
 - Screenshots attached as evidence must not show account emails or personal
   data. Paper account balances/IDs are acceptable.
 - Record structural knowledge only, e.g. "connection state is readable from
@@ -131,14 +134,18 @@ raw captures are never committed by accident.
 | `namespaces` | Which keys exist on `window.TradingViewApi` / `window.TradingView`, and which window globals have trading-suggestive names |
 | `trading_like_services` | Which objects in those namespaces expose methods with names like order/position/account/broker/margin/leverage/commission |
 | `bottom_widget_bar` | Whether the bottom widget bar knows a trading widget (would allow API-based panel open like `showWidget('backtesting')`) |
-| `trading_panel_dom` | Trading Panel button state and the `data-name`/`role`/button-label inventory of the bottom and right layout areas |
+| `trading_panel_dom` | Trading Panel button state and the `data-name`/`role`/button-`aria-label` inventory of the bottom and right layout areas |
 
 ### Follow-up probes (after the first captures)
 
 Once the service scan reveals candidate paths, target them individually with
-`tv ui evaluate` (read-only expressions, method enumeration first, then
-zero-argument getters). Do not call methods whose names suggest mutation
-(`place*`, `cancel*`, `modify*`, `reset*`) during discovery.
+`tv ui evaluate`. Enumerate first, through property descriptors
+(`Object.getOwnPropertyDescriptor` / `Object.getOwnPropertyNames`), the way
+the probe itself does — property reads and getter access can execute code, so
+do not invoke any method or accessor getter until its name and context have
+been classified as a safe read from prior evidence. Never call methods whose
+names suggest mutation (`place*`, `cancel*`, `modify*`, `reset*`, `create*`,
+`close*`) during discovery.
 
 ## Evidence tables
 
