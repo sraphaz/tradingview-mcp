@@ -8,9 +8,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sanitizeForReport } from '../scripts/paper_discovery.js';
+import { sanitizeForReport, MEMBER_INSPECTION_HELPERS } from '../scripts/paper_discovery.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function describeMembersIn(obj) {
+  return new Function('obj', `${MEMBER_INSPECTION_HELPERS}; return describeMembers(obj);`)(obj);
+}
 
 // ── sanitizeForReport() — secret redaction ──────────────────────────────
 
@@ -61,6 +65,71 @@ describe('sanitizeForReport() — secret redaction', () => {
     });
     assert.equal(report.services[0].path, 'window.TradingViewApi._x');
     assert.equal(report.services[0].accessToken, '[REDACTED]');
+  });
+
+  it('redacts email addresses embedded in strings', () => {
+    const report = sanitizeForReport({ label: 'Switch account (rapha@example.com)' });
+    assert.equal(report.label, 'Switch account ([REDACTED-EMAIL])');
+  });
+
+  it('redacts every email occurrence in a string', () => {
+    const result = sanitizeForReport('a@b.co then c.d@e-f.org');
+    assert.ok(!result.includes('@b.co'));
+    assert.ok(!result.includes('@e-f.org'));
+    assert.equal(result.match(/\[REDACTED-EMAIL\]/g).length, 2);
+  });
+});
+
+// ── describeMembers() — getter-safe runtime inspection ──────────────────
+
+describe('describeMembers() — injected inspection helper', () => {
+  it('never invokes accessor getters', () => {
+    let invoked = false;
+    const service = {};
+    Object.defineProperty(service, 'positions', {
+      get() { invoked = true; return []; },
+      enumerable: true,
+      configurable: true,
+    });
+    const members = describeMembersIn(service);
+    assert.equal(invoked, false);
+    assert.ok(members.accessors.includes('positions'));
+  });
+
+  it('survives getters that throw', () => {
+    const service = {};
+    Object.defineProperty(service, 'account', {
+      get() { throw new Error('getter executed'); },
+    });
+    const members = describeMembersIn(service);
+    assert.ok(members.accessors.includes('account'));
+  });
+
+  it('enumerates non-enumerable prototype methods of class instances', () => {
+    class FakeBrokerService {
+      getPositions() {}
+      placeOrder() {}
+    }
+    const members = describeMembersIn(new FakeBrokerService());
+    assert.ok(members.methods.includes('getPositions'));
+    assert.ok(members.methods.includes('placeOrder'));
+  });
+
+  it('enumerates inherited methods without duplicates', () => {
+    class BaseService { connect() {} }
+    class PaperService extends BaseService { connect() {} getOrders() {} }
+    const members = describeMembersIn(new PaperService());
+    assert.equal(members.methods.filter((m) => m === 'connect').length, 1);
+    assert.ok(members.methods.includes('getOrders'));
+  });
+
+  it('excludes constructor and classifies object-valued members', () => {
+    class Service {}
+    const instance = new Service();
+    instance.store = { positions: [] };
+    const members = describeMembersIn(instance);
+    assert.ok(!members.methods.includes('constructor'));
+    assert.ok(members.objects.includes('store'));
   });
 });
 
