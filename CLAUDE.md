@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-84 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+85 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -83,6 +83,9 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 ### "TradingView isn't running"
 - `tv_launch` → auto-detect and launch TradingView with CDP on Mac/Win/Linux
 - `tv_health_check` → verify connection is working
+
+### "What's the Paper Trading state?"
+- `paper_get_status` → read-only observability status (desktop connection, Trading Panel button state). Native Paper Trading support is in the discovery phase (docs/PAPER_TRADING_DISCOVERY.md): undiscovered facts come back as unknown/null and `safe_for_paper_mutation` is always false. There is NO order execution.
 
 ## Context Management Rules
 

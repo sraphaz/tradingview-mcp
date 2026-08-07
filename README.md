@@ -311,6 +311,14 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | `ui_open_panel` / `ui_click` / `ui_evaluate` | UI automation |
 | `tv_launch` / `tv_health_check` / `tv_discover` | Connection management |
 
+### Paper Trading (discovery phase)
+
+Support for TradingView's **native Paper Trading** is being built evidence-first — see [docs/PAPER_TRADING_DISCOVERY.md](docs/PAPER_TRADING_DISCOVERY.md). Only read-only observability exists today; there is no order execution.
+
+| Tool | What it does |
+|------|-------------|
+| `paper_get_status` | Read-only status: desktop connection, Trading Panel button state; undiscovered facts reported as unknown, `safe_for_paper_mutation` always false pending provider identification |
+
 ## Context Management
 
 Tools return compact output by default to minimize context usage. For a typical "analyze my chart" workflow, total context is ~5-10KB instead of ~80KB.
@@ -353,7 +361,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (84 tools) + CLI (`tv` command, 30 commands with 66 subcommands)
+- **Transport**: MCP over stdio (85 tools) + CLI (`tv` command, 31 commands with 67 subcommands)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`
