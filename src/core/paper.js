@@ -553,12 +553,13 @@ export async function cancelOrder({ order_id, _deps } = {}) {
       var ab = tvBroker(tvTrading());
       var deny = tvRequirePaperBroker(ab);
       if (deny) return deny;
-      var ok = await ab.cancelOrder(${safeString(String(order_id))});
-      return { ok: !!ok };
+      // Broker API success is often Promise<void>; only explicit false is failure.
+      var res = await ab.cancelOrder(${safeString(String(order_id))});
+      return { ok: res !== false };
     })()
   `);
   if (result?.error) throw new Error(result.error);
-  return { success: true, action: 'cancel_order', order_id: String(order_id), cancelled: !!result?.ok };
+  return { success: true, action: 'cancel_order', order_id: String(order_id), cancelled: result?.ok !== false };
 }
 
 export async function modifyOrder({ order_id, qty, price, stop_price, _deps } = {}) {
@@ -593,7 +594,7 @@ export async function modifyOrder({ order_id, qty, price, stop_price, _deps } = 
     })()
   `);
   if (result?.error) throw new Error(result.error);
-  return { success: true, action: 'modify_order', order_id: String(order_id), modified: !!result?.ok };
+  return { success: true, action: 'modify_order', order_id: String(order_id), modified: result?.ok !== false };
 }
 
 export async function closePosition({ position_id, symbol, qty, _deps } = {}) {
@@ -610,8 +611,9 @@ export async function closePosition({ position_id, symbol, qty, _deps } = {}) {
       if (deny) return deny;
       var pid = ${safeString(String(id))};
       var amount = ${amount == null ? 'undefined' : String(amount)};
-      var ok = await ab.closePosition(pid, amount);
-      return { ok: !!ok };
+      // Broker API success is often Promise<void>; only explicit false is failure.
+      var res = await ab.closePosition(pid, amount);
+      return { ok: res !== false };
     })()
   `);
   if (result?.error) throw new Error(result.error);
@@ -620,7 +622,7 @@ export async function closePosition({ position_id, symbol, qty, _deps } = {}) {
     action: 'close_position',
     position_id: String(id),
     qty: amount,
-    closed: !!result?.ok,
+    closed: result?.ok !== false,
   };
 }
 
@@ -646,8 +648,9 @@ export async function setBrackets({ position_id, symbol, stop_loss, take_profit,
       var ab = tvBroker(tvTrading());
       var deny = tvRequirePaperBroker(ab);
       if (deny) return deny;
-      var ok = await ab.editPositionBrackets(${safeString(String(id))}, ${JSON.stringify(brackets)});
-      return { ok: !!ok };
+      // Broker API success is often Promise<void>; only explicit false is failure.
+      var res = await ab.editPositionBrackets(${safeString(String(id))}, ${JSON.stringify(brackets)});
+      return { ok: res !== false };
     })()
   `);
   if (result?.error) throw new Error(result.error);
@@ -656,6 +659,6 @@ export async function setBrackets({ position_id, symbol, stop_loss, take_profit,
     action: clear ? 'clear_brackets' : 'set_brackets',
     position_id: String(id),
     brackets,
-    updated: !!result?.ok,
+    updated: result?.ok !== false,
   };
 }

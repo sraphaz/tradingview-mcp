@@ -546,6 +546,26 @@ describe('paper mutation tools', () => {
     assert.equal(called, true);
   });
 
+  it('cancelOrder/closePosition/setBrackets treat Promise<void> as success', async () => {
+    // Page-side maps void → ok: (undefined !== false) === true; host treats missing/undefined ok as success.
+    const voidOk = {
+      evaluate: async () => ({ desktop: true, ...PAPER_CONNECTED }),
+      evaluateAsync: async (expr) => {
+        assert.match(expr, /!== false/);
+        return { ok: true };
+      },
+    };
+    assert.equal((await cancelOrder({ order_id: '1', _deps: voidOk })).cancelled, true);
+    assert.equal((await closePosition({ symbol: 'X', _deps: voidOk })).closed, true);
+    assert.equal((await setBrackets({ symbol: 'X', clear: true, _deps: voidOk })).updated, true);
+
+    const explicitFail = {
+      evaluate: async () => ({ desktop: true, ...PAPER_CONNECTED }),
+      evaluateAsync: async () => ({ ok: false }),
+    };
+    assert.equal((await cancelOrder({ order_id: '1', _deps: explicitFail })).cancelled, false);
+  });
+
   it('modifyOrder requires id, rejects foreign broker, and succeeds on Paper', async () => {
     await assert.rejects(() => modifyOrder({ _deps: contextDeps(PAPER_CONNECTED) }), /order_id required/);
     await assert.rejects(() => modifyOrder({ order_id: '1', _deps: foreign }), (e) => e.code === 'NOT_PAPER_PROVIDER');
