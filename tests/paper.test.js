@@ -135,6 +135,28 @@ describe('paper buildStatus / getStatus', () => {
     assert.equal(status.safe_for_paper_mutation, false);
   });
 
+  it('keeps desktop connected but unknown session when readContext fails after probe', async () => {
+    let calls = 0;
+    const status = await getStatus({
+      _deps: {
+        evaluate: async (expr) => {
+          calls += 1;
+          if (expr.includes('trading-button') || expr.includes('Trading Panel')) {
+            return { button_found: true, button_active: true };
+          }
+          throw new Error('readContext CDP timeout');
+        },
+        evaluateAsync: async () => ({}),
+      },
+    });
+    assert.equal(calls, 2);
+    assert.equal(status.desktop_connected, true);
+    assert.equal(status.tradingview_session, 'unknown');
+    assert.equal(status.paper_connected, false);
+    assert.equal(status.active_provider, null);
+    assert.equal(status.safe_for_paper_mutation, false);
+  });
+
   it('buildStatus derives provider_type none when disconnected without broker', () => {
     const s = buildStatus({
       desktop: true,
@@ -329,6 +351,24 @@ describe('paper read tools', () => {
     assert.equal(res.account.currency, 'USD');
   });
 
+  it('getAccount CDP script prefers meta.currency when positions are empty', async () => {
+    let expr = '';
+    const deps = {
+      evaluate: async () => ({ desktop: true, ...PAPER_CONNECTED }),
+      evaluateAsync: async (e) => {
+        expr = e;
+        return {
+          id: '15372380', name: 'tester', title: 'Paper Trading', type: 'demo', currency: 'USD',
+          balance: 100000, equity: 100000, realized_pnl: 0, unrealized_pnl: 0,
+          margin_used: 0, available_funds: 100000, orders_margin: 0, margin_buffer: 0,
+        };
+      },
+    };
+    await getAccount({ _deps: deps });
+    assert.match(expr, /currency = meta\.currency/);
+    assert.match(expr, /accountCurrency/);
+  });
+
   it('listPositions maps evaluate result and count', async () => {
     const positions = [{ id: 'BINANCE:BTCUSDT', symbol: 'BINANCE:BTCUSDT', side: 'sell', qty: 1 }];
     let calls = 0;
@@ -517,6 +557,9 @@ describe('paper mutation tools', () => {
     assert.equal(res.modified, true);
     assert.match(expr, /modifyOrder/);
     assert.match(expr, /qty = 2/);
+    // Fallback lookup must align with paper_list_orders (OrdersService.activeOrders).
+    assert.match(expr, /activeOrders/);
+    assert.match(expr, /_ordersService/);
   });
 
   it('closePosition requires id and supports partial qty', async () => {

@@ -148,17 +148,11 @@ export function buildStatus(context, panelButton) {
 
 export async function getStatus({ _deps } = {}) {
   const { evaluate } = _resolve(_deps);
-  let desktopConnected = false;
   let panelButton = null;
-  let context = null;
   try {
     panelButton = await evaluate(tradingPanelButtonProbe());
-    desktopConnected = true;
-    context = await readContext({ _deps });
   } catch {
-    // CDP unreachable
-  }
-  if (!desktopConnected) {
+    // CDP unreachable — desktop not connected.
     return {
       success: true,
       desktop_connected: false,
@@ -175,6 +169,25 @@ export async function getStatus({ _deps } = {}) {
       safe_for_paper_mutation: false,
       discovery_status: 'complete',
     };
+  }
+
+  let context = null;
+  try {
+    context = await readContext({ _deps });
+  } catch {
+    // Probe succeeded so Desktop is up, but session/broker read failed.
+    // Report connected desktop with unknown trading facts rather than a healthy Paper session.
+    return buildStatus({
+      desktop: true,
+      session: 'unknown',
+      panel_enabled: null,
+      panel_visible: null,
+      active_widget: null,
+      connect_status: null,
+      broker_id: null,
+      account_id: null,
+      safe_for_paper_mutation: false,
+    }, panelButton);
   }
   return buildStatus({ ...context, desktop: true }, panelButton);
 }
@@ -356,10 +369,12 @@ export async function getAccount({ _deps } = {}) {
         } catch (e) {}
         values[ids[i]] = typeof v === 'number' ? v : null;
       }
-      var currency = null;
+      var currency = meta.currency || null;
       try {
         var pos = await ab.positions();
-        if (pos && pos[0] && pos[0].extra) currency = pos[0].extra.accountCurrency || null;
+        if (pos && pos[0] && pos[0].extra && pos[0].extra.accountCurrency) {
+          currency = pos[0].extra.accountCurrency;
+        }
       } catch (e) {}
       return {
         id: id != null ? String(id) : null,
@@ -550,12 +565,24 @@ export async function modifyOrder({ order_id, qty, price, stop_price, _deps } = 
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
       var existing = null;
-      try { existing = await ab.orderById(${safeString(String(order_id))}); } catch (e) {}
+      var oid = ${safeString(String(order_id))};
+      try { existing = await ab.orderById(oid); } catch (e) {}
+      // Prefer the same source as paper_list_orders (OrdersService.activeOrders).
       if (!existing) {
-        var active = await ab.orders();
-        existing = (active || []).find(function(o) { return String(o.id) === ${safeString(String(order_id))}; }) || null;
+        try {
+          var t = tvTrading();
+          var os = t && t._ordersService;
+          var active = tvWv(os && os.activeOrders && os.activeOrders()) || [];
+          existing = (active || []).find(function(o) { return String(o.id) === oid; }) || null;
+        } catch (e) {}
       }
-      if (!existing) return { error: 'order not found: ' + ${safeString(String(order_id))} };
+      if (!existing) {
+        try {
+          var all = await ab.orders();
+          existing = (all || []).find(function(o) { return String(o.id) === oid; }) || null;
+        } catch (e) {}
+      }
+      if (!existing) return { error: 'order not found: ' + oid };
       var order = Object.assign({}, existing);
       ${qty != null ? `order.qty = ${requireFinite(qty, 'qty')};` : ''}
       ${price != null ? `order.limitPrice = ${requireFinite(price, 'price')};` : ''}
