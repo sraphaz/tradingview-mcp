@@ -326,7 +326,7 @@ Tools talk only to TradingView's **native Paper Trading** provider (stable broke
 | `paper_cancel_order` / `paper_modify_order` | Manage working orders |
 | `paper_close_position` / `paper_set_brackets` | Close positions; set or clear SL/TP |
 
-CLI: `tv paper status|account|accounts|switch-account|positions|orders|place|cancel|close|brackets`.
+CLI: `tv paper status|panel|connect|account|accounts|switch-account|positions|orders|place|cancel|modify|close|brackets`.
 
 If the MCP/CLI points at the wrong Desktop instance, set `TV_CDP_PORT` (and optionally `TV_CDP_HOST`) to the process launched with `--remote-debugging-port`.
 
@@ -372,7 +372,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (85 tools) + CLI (`tv` command, 31 commands with 67 subcommands)
+- **Transport**: MCP over stdio (97 tools) + CLI (`tv` command, 31 commands with 67 subcommands)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`

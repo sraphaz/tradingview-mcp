@@ -468,6 +468,7 @@ describe('paper placeOrder guard + validation', () => {
     assert.equal(res.success, true);
     assert.equal(res.action, 'place_order');
     assert.match(asyncExpr, /placeOrder/);
+    assert.match(asyncExpr, /tvRequirePaperBroker/);
     assert.match(asyncExpr, /BINANCE:BTCUSDT/);
   });
 
@@ -557,9 +558,11 @@ describe('paper mutation tools', () => {
     assert.equal(res.modified, true);
     assert.match(expr, /modifyOrder/);
     assert.match(expr, /qty = 2/);
+    assert.match(expr, /tvRequirePaperBroker/);
     // Fallback lookup must align with paper_list_orders (OrdersService.activeOrders).
     assert.match(expr, /activeOrders/);
     assert.match(expr, /_ordersService/);
+    assert.doesNotMatch(expr, /await ab\.orders\(\)/);
   });
 
   it('closePosition requires id and supports partial qty', async () => {
@@ -676,6 +679,13 @@ describe('paper_cdp PAGE_HELPERS serializers', () => {
   it('tvBrokerId reads _brokerMetainfo.id', () => {
     assert.equal(runPageHelper('tvBrokerId', { _brokerMetainfo: { id: 'Paper' } }), 'Paper');
     assert.equal(runPageHelper('tvBrokerId', null), null);
+  });
+
+  it('tvRequirePaperBroker fails closed for non-Paper brokers', () => {
+    assert.equal(runPageHelper('tvRequirePaperBroker', { _brokerMetainfo: { id: 'Paper' } }), null);
+    const denied = runPageHelper('tvRequirePaperBroker', { _brokerMetainfo: { id: 'BINANCE' } });
+    assert.match(denied.error, /not native Paper/);
+    assert.match(runPageHelper('tvRequirePaperBroker', null).error, /got null/);
   });
 
   it('tvWv unwraps WatchedValue-like objects', () => {

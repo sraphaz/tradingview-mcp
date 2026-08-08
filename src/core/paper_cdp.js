@@ -46,6 +46,14 @@ export const PAGE_HELPERS = `
     } catch (e) {}
     return null;
   }
+  /** Page-side fail-closed guard for mutations (stable id "Paper"). */
+  function tvRequirePaperBroker(ab) {
+    var id = tvBrokerId(ab);
+    if (id !== 'Paper') {
+      return { error: 'Active broker is not native Paper Trading (got ' + (id || 'null') + '). Refusing mutation.' };
+    }
+    return null;
+  }
   function tvScalarizePosition(p) {
     if (!p || typeof p !== 'object') return null;
     var extra = p.extra || {};

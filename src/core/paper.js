@@ -504,6 +504,8 @@ export async function placeOrder({
     (async function() {
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
+      var deny = tvRequirePaperBroker(ab);
+      if (deny) return deny;
       var order = {
         symbol: ${symbol != null ? safeString(symbol) : 'null'},
         side: ${sideNum},
@@ -549,10 +551,13 @@ export async function cancelOrder({ order_id, _deps } = {}) {
     (async function() {
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
+      var deny = tvRequirePaperBroker(ab);
+      if (deny) return deny;
       var ok = await ab.cancelOrder(${safeString(String(order_id))});
       return { ok: !!ok };
     })()
   `);
+  if (result?.error) throw new Error(result.error);
   return { success: true, action: 'cancel_order', order_id: String(order_id), cancelled: !!result?.ok };
 }
 
@@ -564,22 +569,18 @@ export async function modifyOrder({ order_id, qty, price, stop_price, _deps } = 
     (async function() {
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
+      var deny = tvRequirePaperBroker(ab);
+      if (deny) return deny;
       var existing = null;
       var oid = ${safeString(String(order_id))};
       try { existing = await ab.orderById(oid); } catch (e) {}
-      // Prefer the same source as paper_list_orders (OrdersService.activeOrders).
+      // Same non-history source as paper_list_orders (OrdersService.activeOrders).
       if (!existing) {
         try {
           var t = tvTrading();
           var os = t && t._ordersService;
           var active = tvWv(os && os.activeOrders && os.activeOrders()) || [];
           existing = (active || []).find(function(o) { return String(o.id) === oid; }) || null;
-        } catch (e) {}
-      }
-      if (!existing) {
-        try {
-          var all = await ab.orders();
-          existing = (all || []).find(function(o) { return String(o.id) === oid; }) || null;
         } catch (e) {}
       }
       if (!existing) return { error: 'order not found: ' + oid };
@@ -605,12 +606,15 @@ export async function closePosition({ position_id, symbol, qty, _deps } = {}) {
     (async function() {
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
+      var deny = tvRequirePaperBroker(ab);
+      if (deny) return deny;
       var pid = ${safeString(String(id))};
       var amount = ${amount == null ? 'undefined' : String(amount)};
       var ok = await ab.closePosition(pid, amount);
       return { ok: !!ok };
     })()
   `);
+  if (result?.error) throw new Error(result.error);
   return {
     success: true,
     action: 'close_position',
@@ -640,10 +644,13 @@ export async function setBrackets({ position_id, symbol, stop_loss, take_profit,
     (async function() {
       ${PAGE_HELPERS}
       var ab = tvBroker(tvTrading());
+      var deny = tvRequirePaperBroker(ab);
+      if (deny) return deny;
       var ok = await ab.editPositionBrackets(${safeString(String(id))}, ${JSON.stringify(brackets)});
       return { ok: !!ok };
     })()
   `);
+  if (result?.error) throw new Error(result.error);
   return {
     success: true,
     action: clear ? 'clear_brackets' : 'set_brackets',
